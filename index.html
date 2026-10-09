@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E-commerce Customer Intelligence Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--navy:#0f1f3d;--mut:#5b6b88;--bg:#f4f7fc;--card:#fff;--line:#e3e9f4;--acc:#2f6fed;--acc2:#12b5a6;--bad:#d64545}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;color:var(--navy);background:linear-gradient(180deg,#eaf0ff 0,var(--bg) 260px)}
+.wrap{max-width:1280px;margin:0 auto;padding:24px 18px 60px}
+header{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;margin-bottom:18px}
+h1{margin:0;font-size:1.65rem;letter-spacing:-.02em}h2{margin:0 0 12px;font-size:1.05rem}
+.sub{color:var(--mut);font-size:.9rem;margin-top:4px}
+.badge{display:inline-block;padding:3px 10px;border-radius:99px;background:#e6efff;color:var(--acc);font-weight:600;font-size:.75rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 4px 18px rgba(15,31,61,.05);animation:up .5s ease both}
+@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+button,.btn{font:inherit;font-size:.85rem;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--navy);padding:8px 14px;border-radius:9px;cursor:pointer;transition:.2s}
+button:hover,.btn:hover{border-color:var(--acc);transform:translateY(-1px)}button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.pri{background:linear-gradient(135deg,var(--acc),#5a8dff);color:#fff;border:0}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end;margin:16px 0}
+label.f{display:flex;flex-direction:column;font-size:.75rem;color:var(--mut);font-weight:600;gap:4px}
+select,input[type=date]{font:inherit;padding:8px;border:1px solid var(--line);border-radius:9px;color:var(--navy);background:#fff}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi .l{font-size:.75rem;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em}.kpi .v{font-size:1.65rem;font-weight:700;margin-top:6px}.kpi .s{font-size:.75rem;color:var(--mut);margin-top:2px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;margin-bottom:14px}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c6{grid-column:span 6}.c4{grid-column:span 4}
+@media(max-width:900px){.c8,.c6,.c4{grid-column:span 12}}
+.ch{height:270px;position:relative}
+table{width:100%;border-collapse:collapse;font-size:.82rem}th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line)}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:600}
+.sc{overflow-x:auto}.neg{color:var(--bad)}
+.ins{margin:0;padding:0;list-style:none;display:grid;gap:10px}.ins li{padding:10px 12px;border-left:4px solid var(--acc2);background:#f3fbfa;border-radius:8px;font-size:.9rem;line-height:1.45}
+#msg{font-size:.85rem;margin-top:10px}#msg.err{color:var(--bad)}#msg.ok{color:#0b8a5c}
+#empty{text-align:center;padding:50px 20px;color:var(--mut)}
+details{margin-top:10px;font-size:.85rem}summary{cursor:pointer;font-weight:600}
+code{background:#eef2fa;padding:1px 5px;border-radius:5px;font-size:.8rem}
+.meth p,.meth li{font-size:.88rem;line-height:1.55;color:#2b3a58}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body><div class="wrap">
+<header><div><h1>E-commerce Customer Intelligence</h1><div class="sub"><span class="badge" id="src">Synthetic sample data</span> &nbsp;<span id="count"></span></div></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="dl">Download sample CSV</button><button id="exp" class="pri">Export filtered CSV</button></div></header>
+
+<section class="card"><h2>Data source</h2>
+<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><label class="btn pri">Upload CSV<input id="file" type="file" accept=".csv,text/csv" hidden></label><button id="reset">Reset to sample data</button></div>
+<div id="msg" role="status"></div>
+<details><summary>Expected CSV columns</summary>
+<p>Header row required (case-insensitive; spaces become underscores). Dates must be <code>YYYY-MM-DD</code>. One row per order line.</p>
+<div class="sc"><table><tr><th>Column</th><th>Required</th><th>Rule</th></tr>
+<tr><td>order_id</td><td>yes</td><td>text; repeated across lines of one order</td></tr><tr><td>order_date</td><td>yes</td><td>YYYY-MM-DD</td></tr><tr><td>customer_id</td><td>yes</td><td>text</td></tr>
+<tr><td>region, category, product</td><td>yes</td><td>text</td></tr><tr><td>quantity</td><td>yes</td><td>positive integer</td></tr><tr><td>unit_price, unit_cost</td><td>yes</td><td>numbers ≥ 0</td></tr><tr><td>discount</td><td>no</td><td>fraction 0–1 (0.1 = 10%); blank = 0</td></tr></table></div>
+<p>Invalid rows are skipped and reported; if required columns are missing the upload is rejected and your current data stays.</p></details></section>
+
+<section class="filters card" style="margin:14px 0">
+<label class="f">From<input type="date" id="from"></label><label class="f">To<input type="date" id="to"></label>
+<label class="f">Region<select id="region"></select></label><label class="f">Category<select id="category"></select></label>
+<label class="f">Customer segment<select id="segment"></select></label><button id="clear">Clear filters</button></section>
+
+<div id="empty" class="card" hidden><h2>No data for these filters</h2>Widen the date range or choose “All” for region, category or segment.</div>
+
+<main id="main">
+<div class="kpis" id="kpis"></div>
+<div class="grid"><div class="card c8"><h2>Monthly revenue &amp; profit</h2><div class="ch"><canvas id="cTrend"></canvas></div></div>
+<div class="card c4"><h2>Customers by RFM segment</h2><div class="ch"><canvas id="cSeg"></canvas></div></div>
+<div class="card c6"><h2>Category performance</h2><div class="ch"><canvas id="cCat"></canvas></div></div>
+<div class="card c6"><h2>Regional performance</h2><div class="ch"><canvas id="cReg"></canvas></div></div>
+<div class="card c4"><h2>Orders per customer</h2><div class="ch"><canvas id="cFreq"></canvas></div></div>
+<div class="card c8"><h2>Retention by first-purchase month (% of cohort ordering again)</h2><div class="sc" id="coh"></div></div>
+<div class="card c6"><h2>Top 5 products by profit</h2><div class="sc" id="top"></div></div>
+<div class="card c6"><h2>Bottom 5 products by profit</h2><div class="sc" id="bot"></div></div>
+<div class="card c12"><h2>Business insights (from the current filter)</h2><ul class="ins" id="ins"></ul></div></div>
+</main>
+
+<section class="card meth"><h2>Methodology &amp; data limitations</h2>
+<ul><li><b>Revenue</b> = quantity × unit_price × (1 − discount). <b>Profit</b> = revenue − quantity × unit_cost. <b>Orders</b> = distinct order_id. <b>AOV</b> = revenue ÷ orders. Currency symbol is display-only.</li>
+<li><b>Repeat purchase rate</b> = customers with ≥ 2 distinct orders inside the filtered window ÷ customers in that window.</li>
+<li><b>RFM segments</b> are computed once on the full loaded dataset (reference date = last order + 1 day), so a customer keeps the same segment under any filter. Recency score: 3/2/1 by tercile (most recent = 3). Frequency score: 1 order = 1, 2–3 = 2, 4+ = 3. Monetary score: tercile of lifetime revenue. Champions: R=3 and (F=3, or F=2 with M=3). Loyal: F≥2, R≥2. New: R=3, one order. At Risk: R=1, F≥2. Hibernating: everyone else.</li>
+<li><b>Cohorts</b> group customers by first order month within the filtered rows; Mk = share of the cohort ordering k months later. Blank = month not yet observed.</li>
+<li><b>Insights</b> are rule-based descriptions of the displayed numbers plus hypotheses to test. They are not forecasts and carry no predictive-accuracy claim.</li>
+<li><b>Limitations:</b> the sample is synthetic (seeded random generator) and represents no real company. Terciles on small or tied data can be coarse; no returns, shipping, taxes, or marketing cost; cohort figures get noisy for small cohorts; filtering by segment hides customers' orders in other segments' definitions only by design, not recomputation. All processing happens in your browser; nothing is uploaded.</li></ul></section>
+</div>
+
+<script>
+/*CORE*/
+const REQ=['order_id','order_date','customer_id','region','category','product','quantity','unit_price','unit_cost'];
+const SEGS=['Champions','Loyal','New','At Risk','Hibernating'];
+function parseCSV(t){const rows=[];let r=[],c='',q=false;t=t.replace(/^\uFEFF/,'');
+for(let i=0;i<t.length;i++){const ch=t[i];
+if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}
+else if(ch=='"')q=true;else if(ch==','){r.push(c);c=''}
+else if(ch=='\n'||ch=='\r'){if(ch=='\r'&&t[i+1]=='\n')i++;r.push(c);c='';if(r.some(x=>x.trim()!==''))rows.push(r);r=[]}else c+=ch}
+r.push(c);if(r.some(x=>x.trim()!==''))rows.push(r);return rows}
+function validDate(d){if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return false;try{return new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d}catch(e){return false}}
+function validate(text){const out={rows:[],errors:[],skipped:0,total:0,fatal:null};const p=parseCSV(text);
+if(p.length<2){out.fatal='File is empty or has no data rows.';return out}
+const h=p[0].map(x=>x.trim().toLowerCase().replace(/\s+/g,'_'));const miss=REQ.filter(c=>!h.includes(c));
+if(miss.length){out.fatal='Missing required column(s): '+miss.join(', ');return out}
+const ix={};h.forEach((c,i)=>ix[c]=i);
+for(let n=1;n<p.length;n++){out.total++;const r=p[n];const g=c=>(r[ix[c]]===undefined?'':r[ix[c]]).trim();let why=null;
+const d=g('order_date'),qty=Number(g('quantity')),pr=Number(g('unit_price')),co=Number(g('unit_cost'));
+const dis=('discount' in ix&&g('discount')!=='')?Number(g('discount')):0;
+if(!validDate(d))why='invalid order_date (use YYYY-MM-DD)';
+else if(!g('order_id')||!g('customer_id'))why='missing order_id or customer_id';
+else if(!g('region')||!g('category')||!g('product'))why='missing region/category/product';
+else if(g('quantity')===''||!Number.isInteger(qty)||qty<=0)why='quantity must be a positive integer';
+else if(g('unit_price')===''||g('unit_cost')===''||!(pr>=0)||!(co>=0))why='unit_price/unit_cost must be numbers ≥ 0';
+else if(!(dis>=0&&dis<=1))why='discount must be between 0 and 1';
+if(why){out.skipped++;if(out.errors.length<5)out.errors.push('Row '+(n+1)+': '+why);continue}
+const rev=qty*pr*(1-dis);
+out.rows.push({order_id:g('order_id'),order_date:d,customer_id:g('customer_id'),region:g('region'),category:g('category'),product:g('product'),quantity:qty,unit_price:pr,discount:dis,unit_cost:co,revenue:rev,profit:rev-qty*co})}
+if(!out.rows.length&&!out.fatal)out.fatal='No valid rows found. '+out.errors.join('; ');return out}
+const qtl=(a,p)=>{const s=[...a].sort((x,y)=>x-y);return s[Math.floor(p*(s.length-1))]};
+function addSeg(rows){let mx=0;rows.forEach(r=>{const t=Date.parse(r.order_date);if(t>mx)mx=t});const ref=mx+864e5,c={};
+rows.forEach(r=>{const o=c[r.customer_id]=c[r.customer_id]||{last:0,orders:new Set(),m:0};o.last=Math.max(o.last,Date.parse(r.order_date));o.orders.add(r.order_id);o.m+=r.revenue});
+const ids=Object.keys(c);ids.forEach(i=>{c[i].rec=Math.round((ref-c[i].last)/864e5);c[i].f=c[i].orders.size});
+const rc=ids.map(i=>c[i].rec),mc=ids.map(i=>c[i].m),r1=qtl(rc,1/3),r2=qtl(rc,2/3),m1=qtl(mc,1/3),m2=qtl(mc,2/3);
+ids.forEach(i=>{const o=c[i];o.R=o.rec<=r1?3:o.rec<=r2?2:1;o.F=o.f>=4?3:o.f>=2?2:1;o.M=o.m>=m2?3:o.m>=m1?2:1;
+o.seg=(o.R==3&&(o.F==3||(o.F==2&&o.M==3)))?'Champions':(o.F>=2&&o.R>=2)?'Loyal':(o.F==1&&o.R==3)?'New':(o.R==1&&o.F>=2)?'At Risk':'Hibernating'});
+rows.forEach(r=>{const o=c[r.customer_id];r.segment=o.seg;r.rfm=''+o.R+o.F+o.M});return c}
+function filterRows(rows,f){return rows.filter(r=>(!f.from||r.order_date>=f.from)&&(!f.to||r.order_date<=f.to)&&(f.region=='All'||r.region==f.region)&&(f.category=='All'||r.category==f.category)&&(f.segment=='All'||r.segment==f.segment))}
+function kpis(rows){let rev=0,pro=0;const o=new Set(),cu={};rows.forEach(r=>{rev+=r.revenue;pro+=r.profit;o.add(r.order_id);(cu[r.customer_id]=cu[r.customer_id]||new Set()).add(r.order_id)});
+const n=Object.keys(cu).length,rep=Object.values(cu).filter(s=>s.size>=2).length;
+return{revenue:rev,profit:pro,orders:o.size,aov:o.size?rev/o.size:0,customers:n,repeat:n?rep/n:0,margin:rev?pro/rev:0}}
+function group(rows,key){const m={};rows.forEach(r=>{const g=m[r[key]]=m[r[key]]||{name:r[key],revenue:0,profit:0,o:new Set(),c:new Set()};g.revenue+=r.revenue;g.profit+=r.profit;g.o.add(r.order_id);g.c.add(r.customer_id)});
+return Object.values(m).map(g=>({name:g.name,revenue:g.revenue,profit:g.profit,orders:g.o.size,customers:g.c.size,margin:g.revenue?g.profit/g.revenue:0})).sort((a,b)=>b.revenue-a.revenue)}
+function monthly(rows){const m={};rows.forEach(r=>{const k=r.order_date.slice(0,7);const g=m[k]=m[k]||{k,revenue:0,profit:0};g.revenue+=r.revenue;g.profit+=r.profit});return Object.values(m).sort((a,b)=>a.k<b.k?-1:1)}
+function cohort(rows){const mi=d=>+d.slice(0,4)*12+ +d.slice(5,7)-1,cu={};let last=-1;
+rows.forEach(r=>{const m=mi(r.order_date);(cu[r.customer_id]=cu[r.customer_id]||new Set()).add(m);if(m>last)last=m});const co={};
+Object.values(cu).forEach(s=>{const f=Math.min(...s);const o=co[f]=co[f]||{size:0,act:{}};o.size++;s.forEach(m=>o.act[m-f]=(o.act[m-f]||0)+1)});
+return Object.keys(co).map(Number).sort((a,b)=>a-b).map(f=>({label:Math.floor(f/12)+'-'+String(f%12+1).padStart(2,'0'),size:co[f].size,vals:[0,1,2,3,4,5,6].map(k=>f+k>last?null:(co[f].act[k]||0)/co[f].size)}))}
+function freq(rows){const cu={};rows.forEach(r=>(cu[r.customer_id]=cu[r.customer_id]||new Set()).add(r.order_id));const b=[0,0,0,0];Object.values(cu).forEach(s=>b[Math.min(s.size,4)-1]++);return b}
+const csvCell=v=>{v=String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+function toCSV(rows,cols){return [cols.join(',')].concat(rows.map(r=>cols.map(c=>csvCell(r[c]===undefined?'':r[c])).join(','))).join('\n')}
+const SAMPLE_COLS=REQ.concat('discount'),EXPORT_COLS=SAMPLE_COLS.concat(['revenue','profit','segment','rfm']);
+function genSample(){let s=42;const rnd=()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const pick=a=>a[Math.floor(rnd()*a.length)];
+const P={Electronics:[['Wireless Earbuds',60,38],['Smart Watch',140,136],['Power Bank',30,19],['Bluetooth Speaker',55,36],['Webcam HD',45,35],['USB-C Hub',35,20]],
+Fashion:[['Denim Jacket',70,34],['Running Shoes',90,52],['Cotton T-Shirt',20,8],['Leather Wallet',40,17],['Sunglasses',50,21],['Winter Scarf',25,10]],
+Home:[['Air Fryer',95,62],['Desk Lamp',35,17],['Cookware Set',120,78],['Bed Sheet Set',60,28],['Storage Boxes',28,14],['Wall Clock',30,15]],
+Beauty:[['Face Serum',32,9],['Sunscreen SPF50',18,6],['Hair Dryer',55,33],['Perfume 50ml',70,24],['Lip Care Kit',15,5],['Beard Trimmer',40,22]],
+Sports:[['Yoga Mat',28,12],['Dumbbell Set',80,51],['Cycling Helmet',65,37],['Water Bottle',16,6],['Resistance Bands',18,6],['Fitness Tracker',75,52]]};
+const cats=Object.keys(P),regs=['North','North','North','South','South','West','West','East','Central'];
+const seas=[.8,.7,.8,.9,.9,.9,.8,.9,1,1.1,1.6,1.9,.9,.8,.9,1,1,1,.9,1,1.1,1.2,1.8,2.1];
+const rows=[];let oid=1;
+for(let i=1;i<=700;i++){const cid='C'+String(i).padStart(4,'0'),reg=pick(regs),fav=pick(cats),prop=.15+rnd()*2.4,sm=Math.floor(Math.pow(rnd(),1.2)*24);
+const n=Math.min(12,1+Math.floor(-Math.log(1-rnd())*prop));
+for(let k=0;k<n;k++){let m,tries=0;do{m=sm+Math.floor(rnd()*(24-sm));tries++}while(rnd()>seas[m]/2.1&&tries<8);
+const date=(2024+Math.floor(m/12))+'-'+String(m%12+1).padStart(2,'0')+'-'+String(1+Math.floor(rnd()*28)).padStart(2,'0');const id='ORD-'+String(oid++).padStart(5,'0');
+const lines=1+Math.floor(rnd()*3),dis=pick([0,0,0,.05,.1,.2,.25]);
+for(let l=0;l<lines;l++){const cat=rnd()<.55?fav:pick(cats),pr=pick(P[cat]);
+rows.push({order_id:id,order_date:date,customer_id:cid,region:reg,category:cat,product:pr[0],quantity:1+Math.floor(rnd()*rnd()*4),unit_price:pr[1],unit_cost:pr[2],discount:dis})}}}
+rows.forEach(r=>{r.revenue=r.quantity*r.unit_price*(1-r.discount);r.profit=r.revenue-r.quantity*r.unit_cost});
+rows.sort((a,b)=>a.order_date<b.order_date?-1:a.order_date>b.order_date?1:a.order_id<b.order_id?-1:1);return rows}
+/*ENDCORE*/
+
+/* ---------- UI ---------- */
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=v=>(v<0?'-':'')+'$'+(Math.abs(v)>=1e6?(Math.abs(v)/1e6).toFixed(2)+'M':Math.abs(v)>=1e4?(Math.abs(v)/1e3).toFixed(1)+'K':Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:0}));
+const pct=v=>(v*100).toFixed(1)+'%';
+let DATA=[],SRC='Synthetic sample data',charts={};
+const COL=['#2f6fed','#12b5a6','#f5a524','#8b5cf6','#e5566d'];
+function loadData(rows,label){DATA=rows;SRC=label;addSeg(DATA);$('#src').textContent=label;
+const dates=DATA.map(r=>r.order_date).sort();$('#from').min=$('#to').min=dates[0];$('#from').max=$('#to').max=dates[dates.length-1];
+const opts=(id,vals,l)=>{$(id).innerHTML='<option value="All">All '+l+'</option>'+vals.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('')};
+opts('#region',[...new Set(DATA.map(r=>r.region))].sort(),'regions');opts('#category',[...new Set(DATA.map(r=>r.category))].sort(),'categories');opts('#segment',SEGS,'segments');
+$('#from').value=$('#to').value='';render()}
+const getF=()=>({from:$('#from').value,to:$('#to').value,region:$('#region').value,category:$('#category').value,segment:$('#segment').value});
+function mk(id,cfg){if(charts[id])charts[id].destroy();cfg.options=Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:600}},cfg.options||{});charts[id]=new Chart($(id),cfg)}
+const tbl=(h,rows)=>'<table><tr>'+h.map(x=>'<th>'+x+'</th>').join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(x=>'<td>'+x+'</td>').join('')+'</tr>').join('')+'</table>';
+function prodTable(a){return a.length?tbl(['Product','Revenue','Profit','Margin'],a.map(p=>[esc(p.name),money(p.revenue),'<span class="'+(p.profit<0?'neg':'')+'">'+money(p.profit)+'</span>',pct(p.margin)])):'Not enough distinct products in this filter.'}
+function insights(rows,k){const out=[],cat=group(rows,'category'),reg=group(rows,'region'),pr=group(rows,'product').sort((a,b)=>b.profit-a.profit);
+if(cat.length){const t=cat[0];out.push(`<b>${esc(t.name)}</b> is the largest category with ${pct(t.revenue/k.revenue)} of revenue at a ${pct(t.margin)} margin (overall ${pct(k.margin)}).`)}
+if(cat.length>1){const l=[...cat].sort((a,b)=>a.margin-b.margin)[0];out.push(`<b>${esc(l.name)}</b> has the lowest margin (${pct(l.margin)}) on ${money(l.revenue)} revenue. Hypothesis to test: review its discounting and unit costs.`)}
+if(reg.length>1){const a=reg[0],b=reg[reg.length-1];out.push(`<b>${esc(a.name)}</b> leads regions with ${money(a.revenue)}; <b>${esc(b.name)}</b> trails at ${money(b.revenue)} (${money(b.revenue/b.customers)} per customer vs ${money(a.revenue/a.customers)}).`)}
+const seg=group(rows,'segment'),g=n=>seg.find(s=>s.name==n);
+if(g('Champions'))out.push(`<b>Champions</b> are ${pct(g('Champions').customers/k.customers)} of customers but ${pct(g('Champions').revenue/k.revenue)} of revenue, so protecting them matters most.`);
+if(g('At Risk'))out.push(`<b>${g('At Risk').customers}</b> repeat buyers are At Risk (no recent orders), representing ${money(g('At Risk').revenue)} of revenue here. A win-back test is a reasonable next step.`);
+const hi=rows.filter(r=>r.discount>=.2),lo=rows.filter(r=>r.discount<.2),m=a=>{const v=a.reduce((s,r)=>s+r.revenue,0);return v?a.reduce((s,r)=>s+r.profit,0)/v:0};
+if(hi.length&&lo.length)out.push(`Order lines discounted ≥20% earn a ${pct(m(hi))} margin versus ${pct(m(lo))} for the rest. Check whether the extra volume justifies the margin give-up.`);
+out.push(`Repeat purchase rate is ${pct(k.repeat)}; ${pct(1-k.repeat)} of customers ordered once in this window, so second-purchase nudges are the clearest retention lever.`);
+const neg=pr.filter(p=>p.profit<0);if(neg.length)out.push(`<b>${neg.map(p=>esc(p.name)).join(', ')}</b> lose money after discounts and costs (${money(neg.reduce((s,p)=>s+p.profit,0))} combined). Consider repricing or delisting.`);
+return out}
+function render(){const rows=filterRows(DATA,getF()),empty=!rows.length;$('#count').textContent=rows.length.toLocaleString()+' of '+DATA.length.toLocaleString()+' order lines';
+$('#empty').hidden=!empty;$('#main').hidden=empty;$('#exp').disabled=empty;if(empty)return;
+const k=kpis(rows),card=(l,v,s)=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+$('#kpis').innerHTML=card('Revenue',money(k.revenue),'after discounts')+card('Profit',money(k.profit),pct(k.margin)+' margin')+card('Orders',k.orders.toLocaleString(),'distinct order IDs')+card('Avg order value',money(k.aov),'revenue ÷ orders')+card('Repeat rate',pct(k.repeat),'customers with 2+ orders')+card('Customers',k.customers.toLocaleString(),'active in filter');
+const mo=monthly(rows);mk('#cTrend',{type:'line',data:{labels:mo.map(x=>x.k),datasets:[{label:'Revenue',data:mo.map(x=>x.revenue),borderColor:COL[0],backgroundColor:'rgba(47,111,237,.12)',fill:true,tension:.3},{label:'Profit',data:mo.map(x=>x.profit),borderColor:COL[1],tension:.3}]}});
+const bar=(id,k2)=>{const a=group(rows,k2);mk(id,{type:'bar',data:{labels:a.map(x=>x.name),datasets:[{label:'Revenue',data:a.map(x=>x.revenue),backgroundColor:COL[0],borderRadius:5},{label:'Profit',data:a.map(x=>x.profit),backgroundColor:COL[1],borderRadius:5}]}})};bar('#cCat','category');bar('#cReg','region');
+const cs={};const seen=new Set();rows.forEach(r=>{if(!seen.has(r.customer_id)){seen.add(r.customer_id);cs[r.segment]=(cs[r.segment]||0)+1}});
+mk('#cSeg',{type:'doughnut',data:{labels:SEGS,datasets:[{data:SEGS.map(s=>cs[s]||0),backgroundColor:COL}]},options:{plugins:{legend:{position:'bottom'}}}});
+mk('#cFreq',{type:'bar',data:{labels:['1','2','3','4+'],datasets:[{label:'Customers',data:freq(rows),backgroundColor:COL[3],borderRadius:5}]},options:{plugins:{legend:{display:false}}}});
+const co=cohort(rows).slice(-12);$('#coh').innerHTML=tbl(['Cohort','Size','M0','M1','M2','M3','M4','M5','M6'],co.map(c=>[c.label,c.size].concat(c.vals.map(v=>v===null?'':`<span style="display:block;border-radius:5px;padding:2px 4px;background:rgba(47,111,237,${.08+v*.8});color:${v>.5?'#fff':'#0f1f3d'}">${Math.round(v*100)}%</span>`))));
+const pr=group(rows,'product').sort((a,b)=>b.profit-a.profit);$('#top').innerHTML=prodTable(pr.slice(0,5));$('#bot').innerHTML=prodTable(pr.slice(Math.max(5,pr.length-5)).reverse());
+$('#ins').innerHTML=insights(rows,k).map(x=>'<li>'+x+'</li>').join('')}
+function download(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/csv'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+const say=(t,c)=>{$('#msg').textContent=t;$('#msg').className=c||''};
+['from','to','region','category','segment'].forEach(i=>$('#'+i).addEventListener('change',()=>{if($('#from').value&&$('#to').value&&$('#from').value>$('#to').value){say('“From” is after “To”: no rows will match.','err')}else say('');render()}));
+$('#clear').onclick=()=>{$('#from').value=$('#to').value='';['region','category','segment'].forEach(i=>$('#'+i).value='All');say('');render()};
+$('#exp').onclick=()=>download('filtered_orders.csv',toCSV(filterRows(DATA,getF()),EXPORT_COLS));
+$('#dl').onclick=()=>download('sample_orders.csv',toCSV(genSample(),SAMPLE_COLS));
+$('#reset').onclick=()=>{loadData(genSample(),'Synthetic sample data');say('Sample data restored.','ok')};
+$('#file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+rd.onerror=()=>say('Could not read the file.','err');
+rd.onload=()=>{const v=validate(String(rd.result));if(v.fatal){say('Upload rejected: '+v.fatal+' Current data unchanged.','err');return}
+loadData(v.rows,'Uploaded: '+f.name);say(`Loaded ${v.rows.length.toLocaleString()} of ${v.total.toLocaleString()} rows.`+(v.skipped?` Skipped ${v.skipped} invalid row(s). ${v.errors.join(' | ')}`:''),v.skipped?'err':'ok')};
+rd.readAsText(f);e.target.value=''});
+if(typeof Chart==='undefined')say('Chart.js failed to load (offline?). Connect to the internet and reload.','err');
+loadData(genSample(),'Synthetic sample data');
+</script></body></html>
